@@ -1,14 +1,19 @@
-# Environments
+# Python artifacts
+__pycache__/
+*.pyc
+*.py[cod]
+*$py.class
 venv/
 env/
 .env
 
-# Python Cache
-__pycache__/
-*.pyc
-
 # OS generated files
 .DS_Store
 
-# Ignore large model weights
-# models/*.tflite
+# Model files (Too large for Git)
+models/*.tflite
+models/*.txt
+
+# IDE / Extension garbage
+.vscode/
+tempCodeRunnerFile.py
