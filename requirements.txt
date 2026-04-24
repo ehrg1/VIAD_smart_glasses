@@ -1,0 +1,15 @@
+# Hardware & Camera
+rpi-lgpio==0.2.0
+picamera2
+
+# Matrix & Image Processing
+opencv-python
+numpy
+Pillow
+
+# Edge Machine Learning
+ai-edge-litert
+
+# Audio & Cloud Integration
+SpeechRecognition
+google-genai
