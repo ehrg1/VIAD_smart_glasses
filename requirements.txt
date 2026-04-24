@@ -1,15 +1,11 @@
-# Hardware & Camera
-rpi-lgpio
-picamera2
-
-# Matrix & Image Processing
-opencv-python
+# Hardware-Dependent (Do NOT version lock these on Pi)
 numpy
+picamera2
+opencv-python
+
+# Project-Specific
+rpi-lgpio
 Pillow
-
-# Edge Machine Learning
 ai-edge-litert
-
-# Audio & Cloud Integration
 SpeechRecognition
 google-genai
