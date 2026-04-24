@@ -1,5 +1,5 @@
 # Hardware & Camera
-rpi-lgpio==0.2.0
+rpi-lgpio
 picamera2
 
 # Matrix & Image Processing
