@@ -9,3 +9,4 @@ Pillow
 ai-edge-litert
 SpeechRecognition
 google-genai
+pyaudio
