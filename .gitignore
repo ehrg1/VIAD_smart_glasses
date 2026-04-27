@@ -17,3 +17,4 @@ models/*.txt
 # IDE / Extension garbage
 .vscode/
 tempCodeRunnerFile.py
+tempCodeRunnerFile.python
