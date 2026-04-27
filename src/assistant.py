@@ -30,11 +30,12 @@ class GeminiAssistant:
         img = PIL.Image.fromarray(rgb_frame)
         
         print(f"🧠 [Gemini 2.5] Analyzing frame with question: '{user_question}'")
-        
+        prompt = f"You are an AI assistant in a pair of smart glasses for a visually impaired user. Look at this image and answer their question briefly in 1 or 2 short sentences. Question: {user_question}"
+        print(f"full prompt {prompt}")
         try:
             response = self.client.models.generate_content(
                 model=self.model_id,
-                contents=[user_question, img]
+                contents=[prompt, img]
             )
             return response.text
         except Exception as e:

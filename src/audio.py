@@ -36,6 +36,7 @@ class AudioInterface:
                 self.recognizer.adjust_for_ambient_noise(source, duration=1.0)
                 
                 print("🎙️ Listening...")
+                self.speak("I am listening")
                 # timeout=5: wait 5s for speech to start
                 # phrase_time_limit=8: record for max 8s
                 audio_data = self.recognizer.listen(source, timeout=5, phrase_time_limit=8)
