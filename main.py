@@ -20,7 +20,7 @@ class VIADSystem:
         self.is_busy = False
         self.current_dist = 100.0  # Shared distance value
         self.last_alert_time = 0
-        self.alert_cooldown = 4.0  # Seconds between voice alerts
+        self.alert_cooldown = 6.0  # Seconds between voice alerts
         self.window_name = "VIAD Live Feed"
 
     def distance_worker(self):
@@ -103,16 +103,22 @@ class VIADSystem:
                     for det in detections:
                         label = det.get('label', 'Object')
                         box = det.get('box', None)
+                        score = det.get('score', 0)
+
                         
-                        # CRITICAL FIX: NumPy array truth value check
                         if box is not None:
                             h, w, _ = frame.shape
                             ymin, xmin, ymax, xmax = box
                             l, t, r, b = int(xmin*w), int(ymin*h), int(xmax*w), int(ymax*h)
                             
+                            # Format the confidence percentage (e.g., 0.85 -> 85%)
+                            conf_text = f"{int(score * 100)}%"
+
                             # Draw detection box and info
                             cv2.rectangle(frame, (l, t), (r, b), (0, 255, 0), 2)
-                            cv2.putText(frame, f"{label} | {int(self.current_dist)}cm", (l, t-10), 
+                            
+                            display_text = f"{label} {conf_text} | {int(self.current_dist)}cm"
+                            cv2.putText(frame, display_text, (l, t-10), 
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
                     # Visual danger indicator

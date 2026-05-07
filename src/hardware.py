@@ -6,11 +6,11 @@ class SmartGlassesHW:
         # 1. Button on GPIO 26
         # pull_up=True means it uses the Pi's internal resistor 
         # (Connect button between GPIO 26 and a Ground pin)
-        self.button = Button(button_pin, pull_up=True)
+        self.button = Button(button_pin, pull_up=True, bounce_time=0.2)
         
         # 2. Ultrasonic Sensor (HC-SR04)
         # Trigger: GPIO 23, Echo: GPIO 24
-        self.distance_sensor = DistanceSensor(echo=echo_pin, trigger=trigger_pin)
+        self.distance_sensor = DistanceSensor(echo=echo_pin, trigger=trigger_pin, max_distance=4, queue_len=3)
 
     def get_distance(self):
         """Returns distance in centimeters."""
