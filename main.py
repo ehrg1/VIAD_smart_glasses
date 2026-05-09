@@ -20,7 +20,7 @@ class VIADSystem:
         self.is_busy = False
         self.current_dist = 100.0  # Shared distance value
         self.last_alert_time = 0
-        self.alert_cooldown = 6.0  # Seconds between voice alerts
+        self.alert_cooldown = 4.0  # Seconds between voice alerts
         self.window_name = "VIAD Live Feed"
 
     def distance_worker(self):
@@ -40,12 +40,14 @@ class VIADSystem:
             
         self.is_busy = True
         self.audio.speak("Button Pressed, wait")
+        print("⏳ Starting Speech-to-Text...")
         
         # 1. Listen for voice question
         question = self.audio.listen()
         
         if question:
             print(f"📡 Querying Gemini: {question}")
+            print("⏳ Querying Gemini...")
             # 2. Capture a frame for Gemini context
             frame = self.vision.capture_frame()
             # 3. Get response from Gemini 2.5 Flash

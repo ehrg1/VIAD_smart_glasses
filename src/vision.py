@@ -38,7 +38,11 @@ class EdgeVision:
     def capture_frame(self):
         """Grabs a frame and converts RGB to BGR for OpenCV compatibility."""
         frame = self.picam2.capture_array()
-        return cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        # Rotate the camera 90 degrees clockwise
+        rotated_frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+
+        return cv2.cvtColor(rotated_frame, cv2.COLOR_RGB2BGR)
 
     def detect(self, frame, conf_threshold=0.60):
         """Processes a frame and returns detailed detection data."""
