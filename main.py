@@ -40,14 +40,12 @@ class VIADSystem:
             
         self.is_busy = True
         self.audio.speak("Button Pressed, wait")
-        print("⏳ Starting Speech-to-Text...")
         
         # 1. Listen for voice question
         question = self.audio.listen()
         
         if question:
             print(f"📡 Querying Gemini: {question}")
-            print("⏳ Querying Gemini...")
             # 2. Capture a frame for Gemini context
             frame = self.vision.capture_frame()
             # 3. Get response from Gemini 2.5 Flash
