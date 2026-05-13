@@ -42,7 +42,7 @@ class AudioInterface:
                 audio_data = self.recognizer.listen(source, timeout=5, phrase_time_limit=8)
                 
                 print("🔍 Processing...")
-                return self.recognizer.recognize_google(audio_data, timeout=10)
+                return self.recognizer.recognize_google(audio_data)
                 
         except (sr.WaitTimeoutError, sr.UnknownValueError):
             return None
