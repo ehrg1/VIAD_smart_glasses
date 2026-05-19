@@ -216,7 +216,7 @@ class VIADSystem:
                             l, t, r, b = int(xmin*w), int(ymin*h), int(xmax*w), int(ymax*h)
                             
                             # Format the confidence percentage (e.g., 0.85 -> 85%)
-                            conf_text = f"{int((score * 100 + 15))}%"
+                            conf_text = f"{int((score * 100))}%"
 
                             # Draw detection box and info
                             cv2.rectangle(frame, (l, t), (r, b), (0, 255, 0), 2)
