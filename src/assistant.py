@@ -1,11 +1,17 @@
 import os
 import cv2
 import PIL.Image
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from dotenv import load_dotenv
 from google import genai
 
 # Load environment variables from .env
 load_dotenv()
+
+# Hard cap on how long we'll wait for Gemini before giving up. Without this,
+# a stalled network leaves trigger_ai_assistant stuck and the button dead
+# until restart.
+QUERY_TIMEOUT_SECONDS = 15
 
 class GeminiAssistant:
     def __init__(self, language="en"):
@@ -21,6 +27,9 @@ class GeminiAssistant:
         self.client = genai.Client(api_key=self.api_key)
         self.model_id = "gemini-2.5-flash"
         self.language = language
+        # Persistent so future.result(timeout=…) can abandon a hung request
+        # without blocking on executor shutdown.
+        self._executor = ThreadPoolExecutor(max_workers=1)
 
     def query(self, frame, user_question):
         """
@@ -45,11 +54,17 @@ class GeminiAssistant:
             )
         print(f"full prompt {prompt}")
         try:
-            response = self.client.models.generate_content(
+            future = self._executor.submit(
+                self.client.models.generate_content,
                 model=self.model_id,
-                contents=[prompt, img]
+                contents=[prompt, img],
             )
+            response = future.result(timeout=QUERY_TIMEOUT_SECONDS)
             return response.text
+        except FuturesTimeout:
+            if self.language == "ar":
+                return "انتهت مهلة الاتصال، حاول مرة أخرى"
+            return "Connection timed out, try again."
         except Exception as e:
             if self.language == "ar":
                 return f"خطأ في الاتصال: {str(e)}"

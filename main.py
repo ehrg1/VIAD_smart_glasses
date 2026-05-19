@@ -16,10 +16,12 @@ TRANSLATIONS = {
     "en": {
         "button_pressed": "Button Pressed, wait",
         "didnt_catch": "I didn't catch that.",
+        "capture_failed": "Couldn't capture image, try again.",
     },
     "ar": {
         "button_pressed": "تم الضغط على الزر، انتظر",
         "didnt_catch": "لم أسمعك جيداً",
+        "capture_failed": "تعذر التقاط الصورة، حاول مرة أخرى",
     },
 }
 
@@ -148,14 +150,22 @@ class VIADSystem:
         if question:
             print(f"📡 Querying Gemini: {question}")
             # 2. Capture a frame for Gemini context
-            frame = self.vision.capture_frame()
-            # 3. Get response from Gemini 2.5 Flash
-            answer = self.assistant.query(frame, question)
-            # 4. Speak result
-            self.audio.speak(answer)
+            try:
+                frame = self.vision.capture_frame()
+            except Exception as e:
+                print(f"⚠️ Capture error: {e}")
+                frame = None
+
+            if frame is None:
+                self.audio.speak(self.strings["capture_failed"])
+            else:
+                # 3. Get response from Gemini 2.5 Flash
+                answer = self.assistant.query(frame, question)
+                # 4. Speak result
+                self.audio.speak(answer)
         else:
             self.audio.speak(self.strings["didnt_catch"])
-            
+
         self.is_busy = False
 
     def start(self):
@@ -216,7 +226,7 @@ class VIADSystem:
                             l, t, r, b = int(xmin*w), int(ymin*h), int(xmax*w), int(ymax*h)
                             
                             # Format the confidence percentage (e.g., 0.85 -> 85%)
-                            conf_text = f"{int((score * 100))}%"
+                            conf_text = f"{int(score * 100)}%"
 
                             # Draw detection box and info
                             cv2.rectangle(frame, (l, t), (r, b), (0, 255, 0), 2)
