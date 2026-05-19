@@ -1,7 +1,11 @@
+import subprocess
 import time
 import cv2
 import sys
 import threading
+
+import speech_recognition as sr
+
 from src.hardware import SmartGlassesHW
 from src.vision import EdgeVision
 from src.audio import AudioInterface
@@ -19,19 +23,87 @@ TRANSLATIONS = {
     },
 }
 
+# Keywords we accept as a language choice. Lowercased; matched as substrings.
+_ARABIC_KEYWORDS = ("arabic", "arab", "عربي", "العربية", "اثنين")
+_ENGLISH_KEYWORDS = ("english", "إنجليزي", "الإنجليزية", "انجليزي", "واحد")
+
+
+def _find_mic_index():
+    """Pick the first USB/mic input, mirroring AudioInterface's heuristic."""
+    try:
+        for index, name in enumerate(sr.Microphone.list_microphone_names()):
+            if any(key in name.lower() for key in ("pulse", "usb", "mic")):
+                return index
+    except Exception as e:
+        print(f"⚠️ Mic scan error: {e}")
+    return 0
+
+
+def _speak_language_prompt():
+    """Speak the bilingual language prompt with espeak-ng (English then Arabic)."""
+    try:
+        subprocess.run(
+            ['espeak-ng', '-s', '160', '-v', 'en+m3',
+             "For English say English. For Arabic say Arabic."],
+            check=False,
+        )
+        subprocess.run(
+            ['espeak-ng', '-s', '160', '-v', 'ar',
+             "للإنجليزية قل إنجليزي، للعربية قل عربي"],
+            check=False,
+        )
+    except Exception as e:
+        print(f"⚠️ Prompt TTS error: {e}")
+
 
 def select_language():
-    """Prompt the user at startup to pick a supported language."""
-    print("\n🌐 Select Language / اختر اللغة")
-    print("  1) English")
-    print("  2) العربية (Arabic)")
-    while True:
-        choice = input("Enter 1 or 2: ").strip()
-        if choice == "1":
-            return "en"
-        if choice == "2":
-            return "ar"
-        print("❌ Invalid choice. Please enter 1 or 2.")
+    """Voice-driven language picker. Defaults to English on silence or any error."""
+    print("\n🌐 Select Language by Voice / اختر اللغة بالصوت")
+    recognizer = sr.Recognizer()
+    mic_index = _find_mic_index()
+
+    _speak_language_prompt()
+
+    try:
+        with sr.Microphone(device_index=mic_index) as source:
+            recognizer.adjust_for_ambient_noise(source, duration=0.8)
+            print("🎙️ Listening for language choice...")
+            audio = recognizer.listen(source, timeout=5, phrase_time_limit=4)
+    except sr.WaitTimeoutError:
+        print("⏱️ No response — defaulting to English.")
+        return "en"
+    except Exception as e:
+        print(f"⚠️ Mic error ({e}) — defaulting to English.")
+        return "en"
+
+    # Try English STT first; fall back to Arabic STT on the same clip if needed.
+    # Either transcript can contain keywords from either language, so we check both.
+    transcripts = []
+    for locale in ("en-US", "ar-SA"):
+        try:
+            text = recognizer.recognize_google(audio, language=locale)
+            print(f"🔍 Heard ({locale}): {text}")
+            transcripts.append(text.lower())
+        except sr.UnknownValueError:
+            continue
+        except Exception as e:
+            print(f"⚠️ STT error ({locale}): {e}")
+            continue
+
+    if not transcripts:
+        print("❓ Couldn't understand — defaulting to English.")
+        return "en"
+
+    combined = " ".join(transcripts)
+    if any(k in combined for k in _ARABIC_KEYWORDS):
+        print("✅ Selected: Arabic")
+        return "ar"
+    if any(k in combined for k in _ENGLISH_KEYWORDS):
+        print("✅ Selected: English")
+        return "en"
+
+    print("❓ No language keyword detected — defaulting to English.")
+    return "en"
 
 
 class VIADSystem:

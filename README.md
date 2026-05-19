@@ -175,15 +175,14 @@ source venv/bin/activate
 python main.py
 ```
 
-On startup, the system prompts for a language:
+On startup, the system asks for a language **out loud** and listens for the user's reply — no keyboard needed:
 
-```
-🌐 Select Language / اختر اللغة
-  1) English
-  2) العربية (Arabic)
-```
+> *"For English say English. For Arabic say Arabic."*
+> *"للإنجليزية قل إنجليزي، للعربية قل عربي"*
 
-The choice affects all spoken output (obstacle alerts, listening prompt, Gemini's reply) and the speech-recognition locale used for the voice question.
+The microphone then listens for ~5 seconds. The clip is sent to Google STT in both English (`en-US`) and Arabic (`ar-SA`); the transcripts are scanned for keywords like *english / arabic / إنجليزي / عربي*. If the user stays silent, the mic times out, STT fails, or no keyword is recognized, the system **defaults to English** so launch never blocks.
+
+The chosen language then drives all spoken output (obstacle alerts, listening prompt, Gemini's reply) and the STT locale used for subsequent voice questions.
 
 ### Runtime Reference
 
