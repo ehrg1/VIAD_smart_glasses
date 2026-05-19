@@ -8,7 +8,7 @@ from google import genai
 load_dotenv()
 
 class GeminiAssistant:
-    def __init__(self):
+    def __init__(self, language="en"):
         """
         Initializes the Gemini 2.5 Flash client using the API key from .env.
         """
@@ -20,6 +20,7 @@ class GeminiAssistant:
         # Initialize the modern GenAI Client
         self.client = genai.Client(api_key=self.api_key)
         self.model_id = "gemini-2.5-flash"
+        self.language = language
 
     def query(self, frame, user_question):
         """
@@ -30,7 +31,18 @@ class GeminiAssistant:
         img = PIL.Image.fromarray(rgb_frame)
         
         print(f"🧠 [Gemini 2.5] Analyzing frame with question: '{user_question}'")
-        prompt = f"You are an AI assistant in a pair of smart glasses for a visually impaired user. Look at this image and answer their question briefly in 1 or 2 short sentences. Question: {user_question}"
+        if self.language == "ar":
+            prompt = (
+                "أنت مساعد ذكاء اصطناعي في نظارات ذكية لمستخدم ضعيف البصر. "
+                "انظر إلى هذه الصورة وأجب على سؤاله باختصار في جملة أو جملتين قصيرتين باللغة العربية فقط. "
+                f"السؤال: {user_question}"
+            )
+        else:
+            prompt = (
+                "You are an AI assistant in a pair of smart glasses for a visually impaired user. "
+                "Look at this image and answer their question briefly in 1 or 2 short sentences in English only. "
+                f"Question: {user_question}"
+            )
         print(f"full prompt {prompt}")
         try:
             response = self.client.models.generate_content(
@@ -39,4 +51,6 @@ class GeminiAssistant:
             )
             return response.text
         except Exception as e:
+            if self.language == "ar":
+                return f"خطأ في الاتصال: {str(e)}"
             return f"Brain connection error: {str(e)}"

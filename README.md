@@ -22,6 +22,9 @@ Submitted to Qassim University in partial fulfillment of the requirements for th
 - [Project Structure](#project-structure)
 - [Operating Instructions](#operating-instructions)
 - [How It Works](#how-it-works)
+  - [Safety Loop](#safety-loop-continuous--offline)
+  - [Cognitive Loop](#cognitive-loop-on-demand--online)
+  - [Bilingual Operation](#bilingual-operation)
 - [Test Results](#test-results)
 - [GPIO Pin Reference](#gpio-pin-reference)
 - [Troubleshooting](#troubleshooting)
@@ -100,8 +103,10 @@ Run these commands to install the core drivers and speech engine:
 
 ```bash
 sudo apt update
-sudo apt install python3-pip python3-venv build-essential libcap-dev portaudio19-dev swig liblgpio-dev espeak-ng pulseaudio flac -y
+sudo apt install python3-pip python3-venv build-essential libcap-dev portaudio19-dev swig liblgpio-dev espeak-ng ffmpeg pulseaudio flac -y
 ```
+
+> `ffmpeg` provides `ffplay`, which the audio module uses to play the cached neural-voice alert MP3s.
 
 ---
 
@@ -133,7 +138,7 @@ cd ..
 **2. Set your API Key:**
 > you can use this method or follow instruction in .env.example.
 ```bash
-export GOOGLE_API_KEY="YOUR_GEMINI_API_KEY"
+export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 ```
 
 > Get a free API key at [Google AI Studio](https://aistudio.google.com/). For a permanent setup, add the export line to your `~/.bashrc`.
@@ -144,16 +149,18 @@ export GOOGLE_API_KEY="YOUR_GEMINI_API_KEY"
 
 ```
 VIAD_smart_glasses/
-├── main.py               # Orchestrator — multithreading, data flow between modules
+├── main.py               # Orchestrator — language picker, multithreading, data flow
 ├── requirements.txt      # Python dependencies
 ├── .env.example          # Environment variable template
 ├── .gitignore
 ├── models/               # SSD-MobileNet V2 TFLite model and label map
+├── sounds/
+│   └── cache/            # Pre-built neural-voice alert MP3s (en/ + ar/)
 ├── src/
 │   ├── hardware.py       # GPIO button + HC-SR04 ultrasonic sensor
 │   ├── vision.py         # picamera2 capture + TFLite object detection pipeline
-│   ├── assistant.py      # Gemini Flash multimodal queries and image encoding
-│   └── audio_utils.py    # espeak-ng TTS engine, alert queuing, no overlap
+│   ├── assistant.py      # Gemini Flash multimodal queries (bilingual prompts)
+│   └── audio.py          # Bilingual TTS — cached neural voice + espeak-ng fallback
 └── tests/
     └── ...               # Component unit tests
 ```
@@ -167,6 +174,16 @@ VIAD_smart_glasses/
 source venv/bin/activate
 python main.py
 ```
+
+On startup, the system prompts for a language:
+
+```
+🌐 Select Language / اختر اللغة
+  1) English
+  2) العربية (Arabic)
+```
+
+The choice affects all spoken output (obstacle alerts, listening prompt, Gemini's reply) and the speech-recognition locale used for the voice question.
 
 ### Runtime Reference
 
@@ -187,7 +204,9 @@ python main.py
 
 ### Safety Loop (Continuous — Offline)
 
-A dedicated background thread polls the HC-SR04 sensor at ~20Hz, writing the latest distance into a shared variable. The main loop runs SSD-MobileNet V2 on each camera frame to identify objects. The model focuses on 26 classes relevant to indoor and urban navigation. When an obstacle is detected, the system fuses the object label with the distance reading and speaks a contextual alert via `espeak-ng` in a non-blocking thread — the sensor and GUI never freeze during audio output.
+A dedicated background thread polls the HC-SR04 sensor at ~20Hz, writing the latest distance into a shared variable. The main loop runs SSD-MobileNet V2 on each camera frame to identify objects. The model focuses on 26 classes relevant to indoor and urban navigation. When an obstacle is detected, the system fuses the object label with the distance reading and speaks a contextual alert in a non-blocking thread — the sensor and GUI never freeze during audio output.
+
+**Neural-voice alert cache.** Every alert phrase the app can ever say — *(label, distance bucket)* in both Arabic and English — is pre-rendered as an MP3 under `sounds/cache/<lang>/` using Microsoft Edge neural voices (`en-US-GuyNeural`, `ar-SA-HamedNeural`). Distances are floor-bucketed to 10 cm (10–90 cm) so the cache covers every reachable combination. At runtime the alert path checks for the cached file and plays it with `ffplay` at ~80 ms latency. If a cache entry is ever missing, the system instantly falls back to `espeak-ng` and synthesizes the missing phrase in the background via `edge-tts` so the next occurrence plays from disk — so the user is never left in silence.
 
 ### Cognitive Loop (On Demand — Online)
 
@@ -199,6 +218,15 @@ Pressing the physical button on GPIO 26 triggers the assistant. The system:
 5. Speaks the returned answer aloud with `espeak-ng`
 
 During an active assistant query, `is_busy = True` suspends local detection alerts to prevent audio overlap.
+
+### Bilingual Operation
+
+The selected language flows through every spoken interface in the system:
+
+- **Obstacle alerts** play from the matching `sounds/cache/<lang>/` directory (neural Arabic or English voice).
+- **Speech recognition** uses the matching Google STT locale (`ar-SA` or `en-US`).
+- **Gemini prompts** are written in the user's language, instructing the model to answer in 1–2 short sentences in that language only.
+- **System prompts** (*"Button Pressed, wait"*, *"I am listening"*, *"I didn't catch that"*) are translated upfront in `main.py` and `src/audio.py`.
 
 ### Sensor Fusion
 

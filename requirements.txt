@@ -10,6 +10,7 @@ ai-edge-litert
 SpeechRecognition
 google-genai
 pyaudio
+edge-tts
 
 
 python-dotenv
