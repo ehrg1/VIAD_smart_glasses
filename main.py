@@ -1,3 +1,5 @@
+import asyncio
+import os
 import subprocess
 import time
 import cv2
@@ -29,6 +31,33 @@ TRANSLATIONS = {
 _ARABIC_KEYWORDS = ("arabic", "arab", "عربي", "العربية", "اثنين")
 _ENGLISH_KEYWORDS = ("english", "إنجليزي", "الإنجليزية", "انجليزي", "واحد")
 
+# Bilingual prompts spoken during language selection. Cached as neural MP3s
+# under sounds/cache/<lang>/<key>.mp3 on first use; espeak-ng is the immediate
+# fallback — same pattern as the proximity alerts in src/audio.py.
+_PROMPT_CACHE_ROOT = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "sounds", "cache")
+)
+_PROMPT_VOICES = {
+    "en": {"espeak": "en+m3", "edge": "en-US-GuyNeural"},
+    "ar": {"espeak": "ar", "edge": "ar-SA-HamedNeural"},
+}
+_BILINGUAL_PROMPTS = {
+    "select_language": {
+        "en": "Please select a language",
+        "ar": "من فضلك اختر اللغة",
+    },
+    "language_options": {
+        "en": "For English say English. For Arabic say Arabic.",
+        "ar": "للإنجليزية قل إنجليزي، للعربية قل عربي",
+    },
+    "listening": {
+        "en": "I am listening",
+        "ar": "أنا أستمع",
+    },
+}
+_prompt_synth_pending = set()
+_prompt_synth_lock = threading.Lock()
+
 
 def _find_mic_index():
     """Pick the first USB/mic input, mirroring AudioInterface's heuristic."""
@@ -41,21 +70,73 @@ def _find_mic_index():
     return 0
 
 
-def _speak_language_prompt():
-    """Speak the bilingual language prompt with espeak-ng (English then Arabic)."""
+def _prompt_cache_path(key, lang):
+    return os.path.join(_PROMPT_CACHE_ROOT, lang, f"{key}.mp3")
+
+
+def _speak_bilingual_prompt(key):
+    """Speak `key` in English then Arabic.
+
+    Plays the cached neural-voice MP3 if present; otherwise speaks via
+    espeak-ng now and kicks off a background edge-tts synth so the next
+    run is cached.
+    """
+    for lang in ("en", "ar"):
+        text = _BILINGUAL_PROMPTS[key][lang]
+        cache_path = _prompt_cache_path(key, lang)
+        try:
+            if os.path.isfile(cache_path):
+                subprocess.run(
+                    ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet',
+                     cache_path],
+                    check=False,
+                )
+            else:
+                subprocess.run(
+                    ['espeak-ng', '-s', '160',
+                     '-v', _PROMPT_VOICES[lang]["espeak"], text],
+                    check=False,
+                )
+                _kick_off_prompt_cache(key, lang, text, cache_path)
+        except Exception as e:
+            print(f"⚠️ Prompt TTS error ({key}/{lang}): {e}")
+
+
+def _kick_off_prompt_cache(key, lang, text, cache_path):
+    pending_key = (key, lang)
+    with _prompt_synth_lock:
+        if pending_key in _prompt_synth_pending or os.path.isfile(cache_path):
+            return
+        _prompt_synth_pending.add(pending_key)
+    threading.Thread(
+        target=_build_prompt_cache,
+        args=(pending_key, lang, text, cache_path),
+        daemon=True,
+    ).start()
+
+
+def _build_prompt_cache(pending_key, lang, text, cache_path):
+    tmp_path = cache_path + ".tmp"
     try:
-        subprocess.run(
-            ['espeak-ng', '-s', '160', '-v', 'en+m3',
-             "For English say English. For Arabic say Arabic."],
-            check=False,
-        )
-        subprocess.run(
-            ['espeak-ng', '-s', '160', '-v', 'ar',
-             "للإنجليزية قل إنجليزي، للعربية قل عربي"],
-            check=False,
-        )
+        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+        asyncio.run(_edge_synth(text, _PROMPT_VOICES[lang]["edge"], tmp_path))
+        os.replace(tmp_path, cache_path)
+        print(f"💾 Cached prompt: {lang}/{os.path.basename(cache_path)}")
     except Exception as e:
-        print(f"⚠️ Prompt TTS error: {e}")
+        print(f"⚠️ Cache build failed for {pending_key}: {e}")
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+    finally:
+        with _prompt_synth_lock:
+            _prompt_synth_pending.discard(pending_key)
+
+
+async def _edge_synth(text, voice, out_path):
+    import edge_tts
+    c = edge_tts.Communicate(text, voice)
+    await c.save(out_path)
 
 
 def select_language():
@@ -64,11 +145,13 @@ def select_language():
     recognizer = sr.Recognizer()
     mic_index = _find_mic_index()
 
-    _speak_language_prompt()
+    _speak_bilingual_prompt("select_language")
+    _speak_bilingual_prompt("language_options")
 
     try:
         with sr.Microphone(device_index=mic_index) as source:
             recognizer.adjust_for_ambient_noise(source, duration=0.8)
+            _speak_bilingual_prompt("listening")
             print("🎙️ Listening for language choice...")
             audio = recognizer.listen(source, timeout=5, phrase_time_limit=4)
     except sr.WaitTimeoutError:
