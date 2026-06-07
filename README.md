@@ -1,4 +1,4 @@
-# VIAD: Vision Integrated Assistive Device
+# VIAD: Vision impaired Assistive Device
 
 > AI-powered Smart glasses we built to help visually impaired people navigate safely and understand their surroundings using AI.
 
