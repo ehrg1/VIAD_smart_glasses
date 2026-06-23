@@ -307,4 +307,4 @@ This project is open source. See [LICENSE](LICENSE) for details.
 
 *Built as part of a Final Year Project at Qassim University, Department of Computer Science, 2025/2026.*
 
-*Contributions and feedback welcome.*
+*Contributions and feedback are welcome.*
